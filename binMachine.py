@@ -55,10 +55,17 @@ class NumberProcessing:
             counter -= 1
         return lst
 
+class Bit(NumberProcessing):
+
+    def get_number(self):
+        return Number(numb2=self.val)
+
+
 class It(NumberProcessing):
 
     def get_number(self):
         return Number(numb2=self.val)
+
 
 class Number(NumberProcessing):
 
@@ -70,10 +77,15 @@ class MainMachine:
         self.ns = NumberSystem
         self.unit_size = 8
         self.unit_amount = 1024
+        self.return_stack_size = 16
         self.const = {'main': {
             'unit': {
                 'size': self.unit_size,
                 'amount': self.unit_amount,
+                'capacity': self.ns ** self.unit_size,
+            },
+            'st': {
+                'size': self.return_stack_size,
             },
         },}
 
@@ -121,16 +133,23 @@ class MainMachine:
         self.aluBlock.action(Number(0), self.const['alu']['incr'], self.const['mem']['instr'])
 
     def execute(self):
-        while self.get_byte(self.const['mem']['counter'], self.mem).val < self.get_byte(self.const['mem']['instr'], self.mem).val:
+        self.__preparing()
+        while self.get_byte(self.const['mem']['instr_continue'], self.mem).val == 1:
             bit_it_counter = Number(numb10=self.get_byte(self.const['mem']['counter'], self.mem).numb10() * self.const['instr']['size'])
-            print(bit_it_counter.numb10())
-            print(self.get_byte(self.const['mem']['counter'], self.mem).numb10(), self.get_byte(self.const['mem']['instr'], self.mem).numb10())
+            self.aluBlock.action(Number(0), self.const['alu']['incr'], self.const['mem']['counter'])
+            #print(bit_it_counter.numb10())
+            #print(self.get_byte(self.const['mem']['counter'], self.mem).numb10(), self.get_byte(self.const['mem']['instr'], self.mem).numb10())
             type_addressing = self.get_bites(Number(numb10=bit_it_counter.numb10() + self.const['instr']['type']['start']), self.instruction_stack, self.const['instr']['type']['size'])
             code_operation = self.get_bites(Number(numb10=bit_it_counter.numb10() + self.const['instr']['code']['start']), self.instruction_stack, self.const['instr']['code']['size'])
             address = It(numb2=self.get_bites(Number(numb10=bit_it_counter.numb10() + self.const['instr']['address']['start']), self.instruction_stack, self.const['instr']['address']['size']).val)
 
             self.aluBlock.action(type_addressing, code_operation, address)
-            self.aluBlock.action(Number(0), self.const['alu']['incr'], self.const['mem']['counter'])
+            self.aluBlock.compare_smaller_sp(self.const['mem']['counter'], self.const['mem']['instr'], self.const['mem']['instr_continue'])
+
+
+    def __preparing(self):
+        self.aluBlock.action(Number(0), self.const['alu']['incr'], self.const['mem']['instr_continue'])
+        self.aluBlock.update_val(Bit(0), self.const['mem']['f_block'], Bit(numb10=self.memoryBlock.first_block_reservation).list(self.const['main']['unit']['size']))
 
 
 class MemoryBlock:
@@ -143,20 +162,29 @@ class MemoryBlock:
         0: battery
         1: instruction counter
         2: instruction quantity
-        3: cache (using for inputting the value)
+        3: storage value 0/1, if 1 -- program continues executing
+        4: cache (using for inputting the value)
+        5: counter of used values in return stack
+        6: size of return stack
+        7: constant value that storage quantity of used bytes in memory for variables and constants
     """
     def __init__(self, NumberSystem, mainConst):
         self.NS = NumberSystem
         self.mainConst = mainConst
 
         self.mem = [0] * self.mainConst['main']['unit']['size'] * self.mainConst['main']['unit']['amount']
+        self.first_block_reservation = 8
 
         self.constant = {
-            'reserved': 4,
+            'reserved': self.first_block_reservation + self.mainConst['main']['st']['size'],
             'batt': It(numb10=0),
             'counter': It(numb10=1),
             'instr': It(numb10=2),
-            'cache': It(numb10=3),
+            'instr_continue': It(numb10=3),
+            'cache': It(numb10=4),
+            'st_counter': It(numb10=5),
+            'st_size': It(numb10=6),
+            'f_block': It(numb10=7),
         }
 
 
@@ -172,9 +200,18 @@ class ALUBlock_2:
             'or': Number(numb10=2),
             'xor': Number(numb10=3),
             'add': Number(numb10=4),
+            'subtr': Number(numb10=5),
             'store': Number(numb10=7),
-            'incr': Number(numb10=9),
+            'incr': Number(numb10=8),
+            'decr': Number(numb10=9),
+            'cmpb': Number(numb10=10),
+            'cmps': Number(numb10=11),
+            'cmpe': Number(numb10=12),
+            'next': Number(numb10=13),
+            'goto': Number(numb10=14),
         }
+
+        self.unit_size = self.mainConst['main']['unit']['size']  # used big number times
 
     def action(self, type_addressing: Number, code_operation: Number, address: It):
         """
@@ -183,12 +220,12 @@ class ALUBlock_2:
         """
         it_source = It()
         if type_addressing.numb10() == 1:
-            source_A = address.list(self.mainConst['main']['unit']['size'])
+            source_A = address.list(self.unit_size)
         else:
             it_source.keep_numb10_numb(address.numb10())
             source_A = self.mem
-        bit_it_A = Number(numb10=it_source.numb10() * self.mainConst['main']['unit']['size'])
-        bit_it_B = Number(numb10=self.mainConst['mem']['batt'].numb10() * self.mainConst['main']['unit']['size'])
+        bit_it_A = Bit(numb10=it_source.numb10() * self.unit_size)
+        bit_it_B = Bit(numb10=self.mainConst['mem']['batt'].numb10() * self.unit_size)
         match code_operation.val:
             case _ as code if self.const['load'].val == code: #load
                 self.load_f(bit_it_A, bit_it_B, source_A)
@@ -200,47 +237,139 @@ class ALUBlock_2:
                 self.xor_f(bit_it_A, bit_it_B, source_A)
             case _ as code if self.const['add'].val == code:  # add
                 self.add_f(bit_it_A, bit_it_B, source_A)
+            case _ as code if self.const['subtr'].val == code:  # add
+                self.subtraction_f(bit_it_A, bit_it_B, source_A)
             case _ as code if self.const['incr'].val == code: #increment
                 self.increment_f(bit_it_A, source_A)
+            case _ as code if self.const['decr'].val == code: #decrement
+                self.decrement_f(bit_it_A, source_A)
             case _ as code if self.const['store'].val == code: #store
                 self.store_f(bit_it_A, bit_it_B, source_A)
+            case _ as code if self.const['cmpb'].val == code: #compare A > Battery
+                self.compare_bigger_f(bit_it_A, bit_it_B, source_A)
+            case _ as code if self.const['cmps'].val == code: #compare A < Battery
+                self.compare_smaller_f(bit_it_A, bit_it_B, source_A)
+            case _ as code if self.const['cmpe'].val == code: #compare A == Battery
+                self.compare_equal_f(bit_it_A, bit_it_B, source_A)
+            case _ as code if self.const['next'].val == code: #if A % 2 == 0: skip next instruction
+                self.next_f(bit_it_A, bit_it_B, source_A)
+            case _ as code if self.const['goto'].val == code: #go to A instruction
+                self.goto_f(bit_it_A, bit_it_B, source_A)
 
 
-    def load_f(self, bit_it_A: Number, bit_it_B: Number, source_A):
-        for it in range(self.mainConst['main']['unit']['size']): #simple copying of byte
+    def load_f(self, bit_it_A: Bit, bit_it_B: Bit, source_A):
+        for it in range(self.unit_size): #simple copying of byte
             self.mem[bit_it_B.numb10() + it] = source_A[bit_it_A.numb10() + it]
 
-    def store_f(self, bit_it_A: Number, bit_it_B: Number, source_A):
-        for it in range(self.mainConst['main']['unit']['size']):
+    def store_f(self, bit_it_A: Bit, bit_it_B: Bit, source_A):
+        for it in range(self.unit_size):
             source_A[bit_it_A.numb10() + it] = self.mem[bit_it_B.numb10() + it]
 
-    def and_f(self, bit_it_A: Number, bit_it_B: Number, source_A):
-        for it in range(self.mainConst['main']['unit']['size']):
+    def and_f(self, bit_it_A: Bit, bit_it_B: Bit, source_A):
+        for it in range(self.unit_size):
             self.mem[bit_it_B.numb10() + it] = self.mem[bit_it_B.numb10() + it] & source_A[bit_it_A.numb10() + it]
 
-    def or_f(self, bit_it_A: Number, bit_it_B: Number, source_A):
-        for it in range(self.mainConst['main']['unit']['size']):
+    def or_f(self, bit_it_A: Bit, bit_it_B: Bit, source_A):
+        for it in range(self.unit_size):
             self.mem[bit_it_B.numb10() + it] = self.mem[bit_it_B.numb10() + it] | source_A[bit_it_A.numb10() + it]
 
-    def xor_f(self, bit_it_A: Number, bit_it_B: Number, source_A):
-        for it in range(self.mainConst['main']['unit']['size']):
+    def xor_f(self, bit_it_A: Bit, bit_it_B: Bit, source_A):
+        for it in range(self.unit_size):
             self.mem[bit_it_B.numb10() + it] = self.mem[bit_it_B.numb10() + it] ^ source_A[bit_it_A.numb10() + it]
 
-    def add_f(self, bit_it_A: Number, bit_it_B: Number, source_A):
-        unit_size = self.mainConst['main']['unit']['size'] # used big number times
+    def add_f(self, bit_it_A: Bit, bit_it_B: Bit, source_A):
         self.action(Number(0), self.const['store'], self.mainConst['mem']['cache'])
-        bit_it_C = Number(numb10=self.mainConst['mem']['cache'].numb10() * unit_size)
-        self.mem[bit_it_B.numb10() + unit_size - 1] = source_A[bit_it_A.numb10() + unit_size - 1] ^ self.mem[bit_it_B.numb10() + unit_size - 1]
-        for it in range(unit_size -2, -1, -1):
+        bit_it_C = self.__get_bit(self.mainConst['mem']['cache'])
+        self.mem[bit_it_B.numb10() + self.unit_size - 1] = source_A[bit_it_A.numb10() + self.unit_size - 1] ^ self.mem[bit_it_B.numb10() + self.unit_size - 1]
+        for it in range(self.unit_size -2, -1, -1):
             self.mem[bit_it_B.numb10() + it] = source_A[bit_it_A.numb10() + it] ^ self.mem[bit_it_C.numb10() + it] ^ (((self.mem[bit_it_C.numb10() + it + 1] | source_A[bit_it_A.numb10() + it + 1]) & (self.mem[bit_it_B.numb10() + it + 1] == 0)) | (self.mem[bit_it_C.numb10() + it + 1] & source_A[bit_it_A.numb10() + it + 1]))
 
-    def increment_f(self, bit_it_A: Number, source_A):
-        for it in range(self.mainConst['main']['unit']['size'] -1, -1, -1):  # from byte back to front
+    def subtraction_f(self, bit_it_A: Bit, bit_it_B: Bit, source_A):
+        print('Maybe later')
+
+    def increment_f(self, bit_it_A: Bit, source_A):
+        for it in range(self.unit_size -1, -1, -1):  # from byte back to front
             if source_A[bit_it_A.numb10() + it] == self.NS - 1:
                 source_A[bit_it_A.numb10() + it] = 0
             else:
                 source_A[bit_it_A.numb10() + it] += 1
                 return
+
+    def decrement_f(self, bit_it_A: Bit, source_A):
+        for it in range(self.unit_size -1, -1, -1):  # from byte back to front
+            if source_A[bit_it_A.numb10() + it] == 0:
+                source_A[bit_it_A.numb10() + it] = self.NS - 1
+            else:
+                source_A[bit_it_A.numb10() + it] -= 1
+                return
+
+    def compare_bigger_f(self, bit_it_A: Bit, bit_it_B: Bit, source_A):
+        self.mem[bit_it_B.numb10() + self.unit_size - 1] = int(source_A[bit_it_A.numb10() + self.unit_size - 1] == (source_A[bit_it_A.numb10() + self.unit_size - 1] or self.mem[bit_it_B.numb10() + self.unit_size - 1]) and source_A[bit_it_A.numb10() + self.unit_size - 1] != self.mem[bit_it_B.numb10() + self.unit_size - 1])
+        for it in range(self.unit_size - 2, -1, -1):
+            A = source_A[bit_it_A.numb10() + it]
+            B = self.mem[bit_it_B.numb10() + it]
+            if (A != B):
+                self.mem[bit_it_B.numb10() + self.unit_size - 1] = int(A == (A or B))
+            self.mem[bit_it_B.numb10() + it] = 0
+
+    def compare_smaller_f(self, bit_it_A: Bit, bit_it_B: Bit, source_A):
+        self.mem[bit_it_B.numb10() + self.unit_size - 1] = int(self.mem[bit_it_B.numb10() + self.unit_size - 1] == (source_A[bit_it_A.numb10() + self.unit_size - 1] or self.mem[bit_it_B.numb10() + self.unit_size - 1]) and source_A[bit_it_A.numb10() + self.unit_size - 1] !=self.mem[bit_it_B.numb10() + self.unit_size - 1])
+        for it in range(self.unit_size - 2, -1, -1):
+            A = source_A[bit_it_A.numb10() + it]
+            B = self.mem[bit_it_B.numb10() + it]
+            if (A != B):
+                self.mem[bit_it_B.numb10() + self.unit_size - 1] = int(B == (A or B))
+            self.mem[bit_it_B.numb10() + it] = 0
+
+    def compare_equal_f(self, bit_it_A: Bit, bit_it_B: Bit, source_A):
+        self.mem[bit_it_B.numb10() + self.unit_size - 1] = int(source_A[bit_it_A.numb10() + self.unit_size - 1] == self.mem[bit_it_B.numb10() + self.unit_size - 1])
+        for it in range(self.unit_size - 2, -1, -1):
+            A = source_A[bit_it_A.numb10() + it]
+            B = self.mem[bit_it_B.numb10() + it]
+            if (A != B):
+                self.mem[bit_it_B.numb10() + self.unit_size - 1] = 0
+            self.mem[bit_it_B.numb10() + it] = 0
+
+    def next_f(self, bit_it_A: Bit, bit_it_B: Bit, source_A):
+        if source_A[bit_it_A.numb10() + self.unit_size - 1] == 0:
+            self.action(Number(0), self.const['incr'], self.mainConst['mem']['counter'])
+
+    def goto_f(self, bit_it_A: Bit, bit_it_B: Bit, source_A):
+        self.update_val(bit_it_A, self.mainConst['mem']['counter'], source_A)
+
+
+    def compare_smaller_sp(self, it_A: It, it_B: It, storage: It):
+        # safe 1 if A < B, values in memory
+        bit_it_A = self.__get_bit(it_A)
+        bit_it_B = self.__get_bit(it_B)
+        bit_it_S = self.__get_bit(storage)
+        self.mem[bit_it_S.numb10() + self.unit_size - 1] = int(self.mem[bit_it_B.numb10() + self.unit_size - 1] == (self.mem[bit_it_A.numb10() + self.unit_size - 1] or self.mem[bit_it_B.numb10() + self.unit_size - 1]) and self.mem[bit_it_A.numb10() + self.unit_size - 1] != self.mem[bit_it_B.numb10() + self.unit_size - 1])
+        for it in range(self.unit_size - 2, -1, -1):
+            A = self.mem[bit_it_A.numb10() + it]
+            B = self.mem[bit_it_B.numb10() + it]
+            if (A != B):
+                self.mem[bit_it_S.numb10() + self.unit_size - 1] = int(B == (A or B))
+
+    def __get_bit(self, it_A: It):
+        return Bit(numb10= it_A.numb10() * self.unit_size)
+
+    def update_val(self, bit_it_A, bit_it_B, source_A):
+        """
+        :param bit_it_A: new_value
+        :param bit_it_B: updated_value in memory
+        :param source_A: source of new_value
+        :return:
+        """
+        if type(bit_it_A) != Bit: bit_it_A = self.__get_bit(bit_it_A)
+        if type(bit_it_B) != Bit: bit_it_B = self.__get_bit(bit_it_B)
+        for it in range(self.unit_size): #simple copying of byte
+            self.mem[bit_it_B.numb10() + it] = source_A[bit_it_A.numb10() + it]
+
+    def __material_conditional_op(self, A: int, B: int):
+        return A <= B
+
+    def __equality_op(self, A: int, B: int):
+        return A == B
 
 class InstructionRegisterBlock_2:
     """
@@ -300,7 +429,7 @@ class UI_console:
             counter += 1
 
     def execute(self):
-        self.machine.launch()
+        self.machine.execute()
 
 
     def __add_instruction(self, lst):
