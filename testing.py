@@ -23,7 +23,9 @@ class Test(unittest.TestCase):
         return result.numb10()
 
     def show_memory(self):
-        for i in range(30):
+        for i in range(self.UI.machine.const['mem']['reserved'] + 10):
+            if i == self.UI.machine.const['mem']['reserved']:
+                print()
             print(i, '|', end=' ', sep='')
             for j in range(self.unit_size):
                 print(self.machine.mem[i * self.unit_size + j], end=' ')
@@ -217,6 +219,24 @@ class Test(unittest.TestCase):
         print(self.get_byte(0))
         self.assertEqual(n2, res2)
 
+    def test_second_type_addressing(self):
+        self.clear_machine()
+        print('test_second_type_addressing')
+        n1, n2 = 1, 8
+        self.UI.add_instruction(0, self.comm['incr'], 0)
+        self.UI.add_instruction(2, self.comm['incr'], 0)
+        self.UI.add_instruction(1, self.comm['load'], n2)
+        self.UI.add_instruction(0, self.comm['cmps'], 0)
+        self.UI.add_instruction(0, self.comm['store'], n2 + 1)
+        self.UI.add_instruction(0, self.comm['next'], n2 + 1)
+        self.UI.add_instruction(1, self.comm['goto'], 0)
+
+        self.UI.execute()
+        self.show_memory()
+        res2 = self.get_byte(n2, True)
+        print(res2)
+        print(self.get_byte(0))
+        self.assertEqual(n1, res2)
 
 if __name__ == '__main__':
     unittest.main()

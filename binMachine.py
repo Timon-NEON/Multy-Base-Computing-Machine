@@ -9,6 +9,9 @@ class NumberProcessing:
         else:
             self.val = 0
 
+    def __str__(self):
+        return str(type(self)) + '  ' + str(self.val) + '  ' + str(self.val)
+
     def keep_numb2_numb(self, numb2):
         if numb2 < 0: numb2 = 0
         self.val = numb2
@@ -221,40 +224,51 @@ class ALUBlock_2:
         it_source = It()
         if type_addressing.numb10() == 1:
             source_A = address.list(self.unit_size)
+        elif type_addressing.numb10() == 2:
+            bit_address = self.__get_bit(address)
+            new_address = self.__get_value(bit_address, self.mem)
+            new_address = self.__get_it(new_address)
+            self.action(Number(numb10=0), code_operation, new_address)
+            return
         else:
             it_source.keep_numb10_numb(address.numb10())
             source_A = self.mem
-        bit_it_A = Bit(numb10=it_source.numb10() * self.unit_size)
-        bit_it_B = Bit(numb10=self.mainConst['mem']['batt'].numb10() * self.unit_size)
-        match code_operation.val:
-            case _ as code if self.const['load'].val == code: #load
-                self.load_f(bit_it_A, bit_it_B, source_A)
-            case _ as code if self.const['and'].val == code: #and
-                self.and_f(bit_it_A, bit_it_B, source_A)
-            case _ as code if self.const['or'].val == code:  # or
-                self.or_f(bit_it_A, bit_it_B, source_A)
-            case _ as code if self.const['xor'].val == code:  # xor
-                self.xor_f(bit_it_A, bit_it_B, source_A)
-            case _ as code if self.const['add'].val == code:  # add
-                self.add_f(bit_it_A, bit_it_B, source_A)
-            case _ as code if self.const['subtr'].val == code:  # add
-                self.subtraction_f(bit_it_A, bit_it_B, source_A)
-            case _ as code if self.const['incr'].val == code: #increment
-                self.increment_f(bit_it_A, source_A)
-            case _ as code if self.const['decr'].val == code: #decrement
-                self.decrement_f(bit_it_A, source_A)
-            case _ as code if self.const['store'].val == code: #store
-                self.store_f(bit_it_A, bit_it_B, source_A)
-            case _ as code if self.const['cmpb'].val == code: #compare A > Battery
-                self.compare_bigger_f(bit_it_A, bit_it_B, source_A)
-            case _ as code if self.const['cmps'].val == code: #compare A < Battery
-                self.compare_smaller_f(bit_it_A, bit_it_B, source_A)
-            case _ as code if self.const['cmpe'].val == code: #compare A == Battery
-                self.compare_equal_f(bit_it_A, bit_it_B, source_A)
-            case _ as code if self.const['next'].val == code: #if A % 2 == 0: skip next instruction
-                self.next_f(bit_it_A, bit_it_B, source_A)
-            case _ as code if self.const['goto'].val == code: #go to A instruction
-                self.goto_f(bit_it_A, bit_it_B, source_A)
+        bit_it_A = self.__get_bit(it_source)
+        bit_it_B = self.__get_bit(self.mainConst['mem']['batt'])
+        if type_addressing.numb10() == 3:
+            match code_operation.val:
+                case _ as code if self.const['load'].val == code:  # load
+                    self.load_f(bit_it_A, bit_it_B, source_A)
+        else:
+            match code_operation.val:
+                case _ as code if self.const['load'].val == code: #load
+                    self.load_f(bit_it_A, bit_it_B, source_A)
+                case _ as code if self.const['and'].val == code: #and
+                    self.and_f(bit_it_A, bit_it_B, source_A)
+                case _ as code if self.const['or'].val == code:  # or
+                    self.or_f(bit_it_A, bit_it_B, source_A)
+                case _ as code if self.const['xor'].val == code:  # xor
+                    self.xor_f(bit_it_A, bit_it_B, source_A)
+                case _ as code if self.const['add'].val == code:  # add
+                    self.add_f(bit_it_A, bit_it_B, source_A)
+                case _ as code if self.const['subtr'].val == code:  # add
+                    self.subtraction_f(bit_it_A, bit_it_B, source_A)
+                case _ as code if self.const['incr'].val == code: #increment
+                    self.increment_f(bit_it_A, source_A)
+                case _ as code if self.const['decr'].val == code: #decrement
+                    self.decrement_f(bit_it_A, source_A)
+                case _ as code if self.const['store'].val == code: #store
+                    self.store_f(bit_it_A, bit_it_B, source_A)
+                case _ as code if self.const['cmpb'].val == code: #compare A > Battery
+                    self.compare_bigger_f(bit_it_A, bit_it_B, source_A)
+                case _ as code if self.const['cmps'].val == code: #compare A < Battery
+                    self.compare_smaller_f(bit_it_A, bit_it_B, source_A)
+                case _ as code if self.const['cmpe'].val == code: #compare A == Battery
+                    self.compare_equal_f(bit_it_A, bit_it_B, source_A)
+                case _ as code if self.const['next'].val == code: #if A % 2 == 0: skip next instruction
+                    self.next_f(bit_it_A, bit_it_B, source_A)
+                case _ as code if self.const['goto'].val == code: #go to A instruction
+                    self.goto_f(bit_it_A, bit_it_B, source_A)
 
 
     def load_f(self, bit_it_A: Bit, bit_it_B: Bit, source_A):
@@ -350,8 +364,20 @@ class ALUBlock_2:
             if (A != B):
                 self.mem[bit_it_S.numb10() + self.unit_size - 1] = int(B == (A or B))
 
+    def __get_value(self, bit_it_A: Bit, source_A):
+        value = Number(numb10=0)
+        for it in range(self.unit_size): #simple copying of byte
+            value.append(source_A[bit_it_A.numb10() + it])
+        return value
+
     def __get_bit(self, it_A: It):
         return Bit(numb10= it_A.numb10() * self.unit_size)
+
+    def __get_it(self, numb_A: Number, public=True):
+        if public:
+            return It(numb10=numb_A.numb10() + self.mainConst['mem']['reserved'])
+        else:
+            return It(numb10=numb_A.numb10())
 
     def update_val(self, bit_it_A, bit_it_B, source_A):
         """
