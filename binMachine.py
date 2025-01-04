@@ -1,4 +1,3 @@
-from time import *
 
 class NumberProcessing:
     def __init__(self, numb2=-1, numb10=-1):
@@ -10,7 +9,14 @@ class NumberProcessing:
             self.val = 0
 
     def __str__(self):
-        return str(type(self)) + '  ' + str(self.val) + '  ' + str(self.val)
+        return str(type(self)) + '  ' + str(self.val) + '  ' + str(self.numb10())
+
+    def __add__(self, other):
+        if isinstance(other, NumberProcessing):
+            return type(self)(numb10=self.numb10() + other.numb10())
+        elif isinstance(other, int):
+            return type(self)(numb10=self.numb10() + other)
+        return self
 
     def keep_numb2_numb(self, numb2):
         if numb2 < 0: numb2 = 0
@@ -145,7 +151,6 @@ class MainMachine:
             type_addressing = self.get_bites(Number(numb10=bit_it_counter.numb10() + self.const['instr']['type']['start']), self.instruction_stack, self.const['instr']['type']['size'])
             code_operation = self.get_bites(Number(numb10=bit_it_counter.numb10() + self.const['instr']['code']['start']), self.instruction_stack, self.const['instr']['code']['size'])
             address = It(numb2=self.get_bites(Number(numb10=bit_it_counter.numb10() + self.const['instr']['address']['start']), self.instruction_stack, self.const['instr']['address']['size']).val)
-
             self.aluBlock.action(type_addressing, code_operation, address)
             self.aluBlock.compare_smaller_sp(self.const['mem']['counter'], self.const['mem']['instr'], self.const['mem']['instr_continue'])
 
@@ -153,6 +158,8 @@ class MainMachine:
     def __preparing(self):
         self.aluBlock.action(Number(0), self.const['alu']['incr'], self.const['mem']['instr_continue'])
         self.aluBlock.update_val(Bit(0), self.const['mem']['f_block'], Bit(numb10=self.memoryBlock.first_block_reservation).list(self.const['main']['unit']['size']))
+        self.aluBlock.update_val(Bit(0), self.const['mem']['st_size'], Bit(numb10=self.const['main']['st']['size']).list(self.const['main']['unit']['size']))
+
 
 
 class MemoryBlock:
@@ -166,7 +173,7 @@ class MemoryBlock:
         1: instruction counter
         2: instruction quantity
         3: storage value 0/1, if 1 -- program continues executing
-        4: cache (using for inputting the value)
+        4: cache (using for inputting the temporary value)
         5: counter of used values in return stack
         6: size of return stack
         7: constant value that storage quantity of used bytes in memory for variables and constants
@@ -212,6 +219,7 @@ class ALUBlock_2:
             'cmpe': Number(numb10=12),
             'next': Number(numb10=13),
             'goto': Number(numb10=14),
+            'svrt': Number(numb10=15),
         }
 
         self.unit_size = self.mainConst['main']['unit']['size']  # used big number times
@@ -269,6 +277,8 @@ class ALUBlock_2:
                     self.next_f(bit_it_A, bit_it_B, source_A)
                 case _ as code if self.const['goto'].val == code: #go to A instruction
                     self.goto_f(bit_it_A, bit_it_B, source_A)
+                case _ as code if self.const['svrt'].val == code: #save the address to return stack
+                    self.save_return_f(bit_it_A, bit_it_B, source_A)
 
 
     def load_f(self, bit_it_A: Bit, bit_it_B: Bit, source_A):
@@ -350,6 +360,16 @@ class ALUBlock_2:
 
     def goto_f(self, bit_it_A: Bit, bit_it_B: Bit, source_A):
         self.update_val(bit_it_A, self.mainConst['mem']['counter'], source_A)
+
+    def save_return_f(self, bit_it_A: Bit, bit_it_B: Bit, source_A):
+        stack_counter_it = self.mainConst['mem']['st_counter']
+        stack_counter_bit = self.__get_bit(stack_counter_it)
+        stack_counter_value = self.__get_value(stack_counter_bit, self.mem) + self.mainConst['mem']['f_block'] + 1
+        stack_counter_value_it = self.__get_it(stack_counter_value, False)
+        stack_counter_value_bit = self.__get_bit(stack_counter_value_it)
+        print(stack_counter_value)
+        self.update_val(bit_it_A, stack_counter_value_bit, source_A)
+        self.increment_f(stack_counter_bit, self.mem)
 
 
     def compare_smaller_sp(self, it_A: It, it_B: It, storage: It):

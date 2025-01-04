@@ -238,5 +238,24 @@ class Test(unittest.TestCase):
         print(self.get_byte(0))
         self.assertEqual(n1, res2)
 
+    def test_svrt(self):
+        self.clear_machine()
+        print('test_svrt')
+        n1, n2, n3 = 12, 8, 7
+        self.UI.add_instruction(1, self.comm['load'], n1)
+        self.UI.add_instruction(0, self.comm['store'], 0)
+        self.UI.add_instruction(0, self.comm['svrt'], 0)
+        self.UI.add_instruction(1, self.comm['load'], n2)
+        self.UI.add_instruction(0, self.comm['store'], 0)
+        self.UI.add_instruction(0, self.comm['svrt'], 0)
+        self.UI.add_instruction(1, self.comm['svrt'], n3)
+
+
+        self.UI.execute()
+        self.show_memory()
+        res2 = self.get_byte(10)
+        print(res2)
+        self.assertEqual(n3, res2)
+
 if __name__ == '__main__':
     unittest.main()
