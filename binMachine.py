@@ -220,6 +220,11 @@ class ALUBlock_2:
             'next': Number(numb10=13),
             'goto': Number(numb10=14),
             'svrt': Number(numb10=15),
+
+            'end': Number(numb10=0),
+            'clr': Number(numb10=1),
+            'rtrn': Number(numb10=2),
+            'cin': Number(numb10=3),
         }
 
         self.unit_size = self.mainConst['main']['unit']['size']  # used big number times
@@ -230,7 +235,7 @@ class ALUBlock_2:
         B - battery
         """
         it_source = It()
-        if type_addressing.numb10() == 1:
+        if type_addressing.numb10() == 1 or type_addressing.numb10() == 3:
             source_A = address.list(self.unit_size)
         elif type_addressing.numb10() == 2:
             bit_address = self.__get_bit(address)
@@ -245,8 +250,8 @@ class ALUBlock_2:
         bit_it_B = self.__get_bit(self.mainConst['mem']['batt'])
         if type_addressing.numb10() == 3:
             match code_operation.val:
-                case _ as code if self.const['load'].val == code:  # load
-                    self.load_f(bit_it_A, bit_it_B, source_A)
+                case _ as code if self.const['end'].val == code:  # load
+                    self.end_c()
         else:
             match code_operation.val:
                 case _ as code if self.const['load'].val == code: #load
@@ -370,6 +375,9 @@ class ALUBlock_2:
         print(stack_counter_value)
         self.update_val(bit_it_A, stack_counter_value_bit, source_A)
         self.increment_f(stack_counter_bit, self.mem)
+
+    def end_c(self):
+        self.update_val(self.mainConst['mem']['instr'], self.mainConst['mem']['counter'], self.mem)
 
 
     def compare_smaller_sp(self, it_A: It, it_B: It, storage: It):

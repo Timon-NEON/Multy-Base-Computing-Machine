@@ -257,5 +257,20 @@ class Test(unittest.TestCase):
         print(res2)
         self.assertEqual(n3, res2)
 
+    def test_end(self):
+        self.clear_machine()
+        print('test_end')
+        n1 = 1
+        self.UI.add_instruction(0, self.comm['incr'], 0)
+        self.UI.add_instruction(3, self.comm['end'], 0)
+        self.UI.add_instruction(0, self.comm['incr'], 0)
+
+
+        self.UI.execute()
+        self.show_memory()
+        res2 = self.get_byte(0, True)
+        print(res2)
+        self.assertEqual(n1, res2)
+
 if __name__ == '__main__':
     unittest.main()
