@@ -86,16 +86,16 @@ class MainMachine:
         self.ns = NumberSystem
         self.unit_size = 8
         self.unit_amount = 1024
-        self.return_stack_size = 16
+        #self.return_stack_size = 16
         self.const = {'main': {
             'unit': {
                 'size': self.unit_size,
                 'amount': self.unit_amount,
                 'capacity': self.ns ** self.unit_size,
             },
-            'st': {
-                'size': self.return_stack_size,
-            },
+            #'st': {
+            #    'size': self.return_stack_size,
+            #},
         },}
 
         self.memoryBlock = MemoryBlock(2, self.const)
@@ -157,8 +157,8 @@ class MainMachine:
 
     def __preparing(self):
         self.aluBlock.action(Number(0), self.const['alu']['incr'], self.const['mem']['instr_continue'])
-        self.aluBlock.update_val(Bit(0), self.const['mem']['f_block'], Bit(numb10=self.memoryBlock.first_block_reservation).list(self.const['main']['unit']['size']))
-        self.aluBlock.update_val(Bit(0), self.const['mem']['st_size'], Bit(numb10=self.const['main']['st']['size']).list(self.const['main']['unit']['size']))
+        #self.aluBlock.update_val(Bit(0), self.const['mem']['f_block'], Bit(numb10=self.memoryBlock.first_block_reservation).list(self.const['main']['unit']['size']))
+        #self.aluBlock.update_val(Bit(0), self.const['mem']['st_size'], Bit(numb10=self.const['main']['st']['size']).list(self.const['main']['unit']['size']))
 
 
 
@@ -186,15 +186,15 @@ class MemoryBlock:
         self.first_block_reservation = 8
 
         self.constant = {
-            'reserved': self.first_block_reservation + self.mainConst['main']['st']['size'],
+            'reserved': self.first_block_reservation,
             'batt': It(numb10=0),
             'counter': It(numb10=1),
             'instr': It(numb10=2),
             'instr_continue': It(numb10=3),
             'cache': It(numb10=4),
-            'st_counter': It(numb10=5),
-            'st_size': It(numb10=6),
-            'f_block': It(numb10=7),
+            #'st_counter': It(numb10=5),
+            #'st_size': It(numb10=6),
+            #'f_block': It(numb10=7),
         }
 
 
@@ -219,11 +219,11 @@ class ALUBlock_2:
             'cmpe': Number(numb10=12),
             'next': Number(numb10=13),
             'goto': Number(numb10=14),
-            'svrt': Number(numb10=15),
+            #'svrt': Number(numb10=15),
 
             'end': Number(numb10=0),
             'clr': Number(numb10=1),
-            'rtrn': Number(numb10=2),
+            #'rtrn': Number(numb10=2),
             'cin': Number(numb10=3),
         }
 
@@ -282,8 +282,8 @@ class ALUBlock_2:
                     self.next_f(bit_it_A, bit_it_B, source_A)
                 case _ as code if self.const['goto'].val == code: #go to A instruction
                     self.goto_f(bit_it_A, bit_it_B, source_A)
-                case _ as code if self.const['svrt'].val == code: #save the address to return stack
-                    self.save_return_f(bit_it_A, bit_it_B, source_A)
+                #case _ as code if self.const['svrt'].val == code: #save the address to return stack
+                #    self.save_return_f(bit_it_A, bit_it_B, source_A)
 
 
     def load_f(self, bit_it_A: Bit, bit_it_B: Bit, source_A):
@@ -366,18 +366,26 @@ class ALUBlock_2:
     def goto_f(self, bit_it_A: Bit, bit_it_B: Bit, source_A):
         self.update_val(bit_it_A, self.mainConst['mem']['counter'], source_A)
 
-    def save_return_f(self, bit_it_A: Bit, bit_it_B: Bit, source_A):
-        stack_counter_it = self.mainConst['mem']['st_counter']
-        stack_counter_bit = self.__get_bit(stack_counter_it)
-        stack_counter_value = self.__get_value(stack_counter_bit, self.mem) + self.mainConst['mem']['f_block'] + 1
-        stack_counter_value_it = self.__get_it(stack_counter_value, False)
-        stack_counter_value_bit = self.__get_bit(stack_counter_value_it)
-        print(stack_counter_value)
-        self.update_val(bit_it_A, stack_counter_value_bit, source_A)
-        self.increment_f(stack_counter_bit, self.mem)
+    #def save_return_f(self, bit_it_A: Bit, bit_it_B: Bit, source_A):
+    #    stack_counter_it = self.mainConst['mem']['st_counter']
+    #    stack_counter_bit = self.__get_bit(stack_counter_it)
+    #    stack_counter_value = self.__get_value(stack_counter_bit, self.mem) + self.mainConst['mem']['f_block'] + 1
+    #    stack_counter_value_it = self.__get_it(stack_counter_value, False)
+    #    stack_counter_value_bit = self.__get_bit(stack_counter_value_it)
+    #    self.update_val(bit_it_A, stack_counter_value_bit, source_A)
+    #    self.increment_f(stack_counter_bit, self.mem)
 
     def end_c(self):
         self.update_val(self.mainConst['mem']['instr'], self.mainConst['mem']['counter'], self.mem)
+
+    #def return_c(self):
+    #    stack_counter_it = self.mainConst['mem']['st_counter']
+    #    stack_counter_bit = self.__get_bit(stack_counter_it)
+    #    stack_counter_value = self.__get_value(stack_counter_bit, self.mem) + self.mainConst['mem']['f_block'] + 1
+    #    stack_counter_value_it = self.__get_it(stack_counter_value, False)
+    #    stack_counter_value_bit = self.__get_bit(stack_counter_value_it)
+    #    self.update_val(self.mainConst['mem']['instr'], stack_counter_value_bit, self.mem)
+    #    self.decrement_f(stack_counter_bit, self.mem)
 
 
     def compare_smaller_sp(self, it_A: It, it_B: It, storage: It):
