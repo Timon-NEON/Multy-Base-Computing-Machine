@@ -67,3 +67,28 @@ class NumberProcessing:
         return [0] * (size - len(lst)) + lst
 
 
+class Unit(NumberProcessing):
+
+    def get_number(self):
+        return Number(self.NS, numb10=self.val)
+
+    def get_word(self):
+        return Word(self.NS, numb10=self.val)
+
+
+class Word(NumberProcessing):
+
+    def get_number(self):
+        return Number(self.NS, numb10=self.val)
+
+    def get_unit(self):
+        return Unit(self.NS, numb10=self.val)
+
+
+class Number(NumberProcessing):
+
+    def get_word(self):
+        return Word(self.NS, numb10=self.val)
+
+    def get_unit(self):
+        return Unit(self.NS, numb10=self.val)
