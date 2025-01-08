@@ -1,8 +1,10 @@
 from math import ceil, log, floor
 
 class NumberProcessing:
-    def __init__(self, NS:int, numb=None, numb10=-1):
-        self.NS = NS
+    def __init__(self, param:list, numb10=-1, numb=None):
+        self.param = param
+        self.NS = param[0]
+        self.word_size = param[1]
         if numb != None:
             self.keep_orig_numb(numb)
         elif numb10 != -1:
@@ -15,9 +17,9 @@ class NumberProcessing:
 
     def __add__(self, other):
         if isinstance(other, NumberProcessing):
-            return type(self)(self.NS, numb10=self.val + other.val)
+            return type(self)(self.param, numb10=self.val + other.val)
         elif isinstance(other, int):
-            return type(self)(self.NS, numb10=self.val + other)
+            return type(self)(self.param, numb10=self.val + other)
         return self
 
     def __and__(self, other):
@@ -30,7 +32,7 @@ class NumberProcessing:
             if self.val < other:
                 return self
             else:
-                return type(self)(self.NS, numb10=other)
+                return type(self)(self.param, numb10=other)
         else:
             return self
 
@@ -44,23 +46,24 @@ class NumberProcessing:
             if self.val > other:
                 return self
             else:
-                return type(self)(self.NS, numb10=other)
+                return type(self)(self.param, numb10=other)
         else:
             return self
 
     def __xor__(self, other):
+        word_capacity = self.NS ** self.word_size
         if isinstance(other, NumberProcessing):
-            return type(self)(self.NS, numb10=(self.val + other.val) % self.NS)
+            return type(self)(self.param, numb10=(self.val + other.val) % word_capacity)
         elif isinstance(other, int):
-            return type(self)(self.NS, numb10=(self.val + other) % self.NS)
+            return type(self)(self.param, numb10=(self.val + other) % word_capacity)
         else:
             return self
 
     def __eq__(self, other):
         if isinstance(other, NumberProcessing):
-            return type(self)(self.NS, self.val == other.val)
+            return type(self)(self.param, int(self.val == other.val))
         elif isinstance(other, int):
-            return type(self)(self.NS, self.val == other)
+            return type(self)(self.param, int(self.val == other))
         else:
             return self
 
@@ -73,7 +76,7 @@ class NumberProcessing:
     def keep_numb10_numb(self, numb10):
         self.val = numb10
 
-    def append(self, numb):
+    def append(self, numb: int):
         self.val = self.val * self.NS + numb
 
     def incr(self):
@@ -83,7 +86,7 @@ class NumberProcessing:
         self.val -= 1
 
     def list(self, size=-1):
-        lst = [0] * size
+        lst = []
         val_copy = self.val
         power = 0
         counter = size - 1
@@ -99,46 +102,53 @@ class NumberProcessing:
 class Unit(NumberProcessing):
 
     def get_number(self):
-        return Number(self.NS, numb10=self.val)
+        return Number(self.param, numb10=self.val)
 
     def get_word(self):
-        return Word(self.NS, numb10=self.val)
+        return Word(self.param, numb10=self.val)
 
 
 class Word(NumberProcessing):
 
     def get_number(self):
-        return Number(self.NS, numb10=self.val)
+        return Number(self.param, numb10=self.val)
 
     def get_unit(self):
-        return Unit(self.NS, numb10=self.val)
+        return Unit(self.param, numb10=self.val)
 
 
 class Number(NumberProcessing):
 
     def get_word(self):
-        return Word(self.NS, numb10=self.val)
+        return Word(self.param, numb10=self.val)
 
     def get_unit(self):
-        return Unit(self.NS, numb10=self.val)
+        return Unit(self.param, numb10=self.val)
 
 
 class InformationBasis:
-    def __init__(self, NS:int, mainConst:dict, memory_size=0, lst=None):
-        self.NS = NS
+    def __init__(self, mainConst:dict, memory_size=0, lst=None):
+        self.NS = mainConst['NS']
         self.mainConst = mainConst
+        self.param = [self.NS, self.mainConst['main']['word']['size']]
         if memory_size != 0:
+            self.memory_size = memory_size
             self.__mem = [0] * memory_size
         elif lst != None:
+            self.memory_size = len(lst)
             self.__mem = lst
         else:
+            self.memory_size = 0
             self.__mem = []
 
     def read(self, unit: Unit) -> Number:
-        return Number(self.NS, self.__mem[unit.val])
+        return Number(self.param, self.__mem[unit.val])
 
     def update(self, unit: Unit, number: Number):
         self.__mem[unit.val] = number.val
+
+    def print(self):
+        print(*self.__mem)
 
 
 
@@ -153,17 +163,20 @@ class MainMachine:
         self.commands_quantity = 16
 
         self.word_capacity = self.NS ** self.word
-        self.memory_units_quantity = self.memory_size * self.word
+        self.memory_units_quantity = min(self.word_capacity, self.memory_size * word)
 
         self.instr_type_size = ceil(log(self.type_addressing_quantity, self.NS))
         self.instr_command_size = ceil(log(self.commands_quantity, self.NS))
         self.instr_word = self.instr_type_size + self.instr_command_size + self.word  # units
-        self.instr_capacity = min(self.word_capacity, floor(self.instr_stack_size / self.instr_word))
+        self.instr_capacity = min(self.word_capacity, self.instr_stack_size)
         self.instr_units_quantity = self.instr_capacity * self.instr_word
 
         self.first_block_reservation = 5
 
+        self.param = [self.NS, self.word]
+
         self.const ={
+            'NS': self.NS,
             'main': {
                 'word': {
                     'size': self.word,
@@ -190,49 +203,50 @@ class MainMachine:
                 'capacity': self.instr_capacity,
             },
             'alu': {
-                'load': Number(self.NS, numb10=0),
-                'and': Number(self.NS, numb10=1),
-                'or': Number(self.NS, numb10=2),
-                'xor': Number(self.NS, numb10=3),
-                'add': Number(self.NS, numb10=4),
-                'subtr': Number(self.NS, numb10=5),
-                'store': Number(self.NS, numb10=7),
-                'incr': Number(self.NS, numb10=8),
-                'decr': Number(self.NS, numb10=9),
-                'cmpb': Number(self.NS, numb10=10),
-                'cmps': Number(self.NS, numb10=11),
-                'cmpe': Number(self.NS, numb10=12),
-                'next': Number(self.NS, numb10=13),
-                'goto': Number(self.NS, numb10=14),
+                'load': Number(self.param, numb10=0),
+                'min': Number(self.param, numb10=1),
+                'max': Number(self.param, numb10=2),
+                'add': Number(self.param, numb10=4),
+                'subtr': Number(self.param, numb10=5),
+                'store': Number(self.param, numb10=7),
+                'incr': Number(self.param, numb10=8),
+                'decr': Number(self.param, numb10=9),
+                'cmpb': Number(self.param, numb10=10),
+                'cmps': Number(self.param, numb10=11),
+                'cmpe': Number(self.param, numb10=12),
+                'next': Number(self.param, numb10=13),
+                'goto': Number(self.param, numb10=14),
 
-                'end': Number(self.NS, numb10=0),
-                'clr': Number(self.NS, numb10=1),
-                'cin': Number(self.NS, numb10=3),
+                'end': Number(self.param, numb10=0),
+                'clr': Number(self.param, numb10=1),
+                'cin': Number(self.param, numb10=3),
             },
             'mem': {
                 'reserved': self.first_block_reservation,
-                'batt': Word(self.NS, numb10=0),
-                'counter': Word(self.NS, numb10=1),
-                'instr': Word(self.NS, numb10=2),
-                'instr_continue': Word(self.NS, numb10=3),
-                'cache': Word(self.NS, numb10=4),
+                'batt': Word(self.param, numb10=0),
+                'counter': Word(self.param, numb10=1),
+                'instr': Word(self.param, numb10=2),
+                'instr_continue': Word(self.param, numb10=3),
+                'cache': Word(self.param, numb10=4),
             },
         }
 
-        self.MB = MemoryBlock(2, self.const, memory_size=self.memory_units_quantity)
 
-        self.IB = InstructionRegisterBlock_2(self.NS, self.const, memory_size=self.instr_units_quantity)
 
-        self.AB = ALUBlock_2(self.NS, self.MB, self.const)
+        self.MB = MemoryBlock(self.const, memory_size=self.memory_units_quantity)
+
+        self.IB = InstructionRegisterBlock_2(self.const, memory_size=self.instr_units_quantity)
+
+        self.AB = ALUBlock_2(self.MB, self.const)
 
     def get_unit(self, value: NumberProcessing, word_capacity: int):
-        return Unit(value.NS, numb10=value.val * word_capacity)
+        return Unit(value.param, numb10=value.val * word_capacity)
 
     def read_units(self, unit_address: Unit, source: InformationBasis, size: int) -> Number:
-        number = Number(self.NS)
+        number = Number(self.param)
         for it in range(size):
-            unit = Unit(self.NS, numb10=unit_address.val + it)
-            number.append(source.read(unit))
+            unit = Unit(self.param, numb10=unit_address.val + it)
+            number.append(source.read(unit).val)
         return number
 
     def read_word(self, address: Word, source: InformationBasis) -> Number:
@@ -243,34 +257,34 @@ class MainMachine:
         return self.read_units(self.get_unit(address, local_unit_size), source, local_unit_size)
 
     def add_instruction(self, type_addressing: int, code_operation: int, address: int):
-        type_addressing = Number(self.NS, numb10=type_addressing)
-        code_operation = Number(self.NS, numb10=code_operation)
-        address = Word(self.NS, numb10=address)
+        type_addressing = Number(self.param, numb10=type_addressing)
+        code_operation = Number(self.param, numb10=code_operation)
+        address = Word(self.param, numb10=address)
 
         unit_counter = self.get_unit(self.read_word(self.const['mem']['instr'], self.MB), self.const['instr']['word']['size']) #value counter from `mem` expresses iterator in stack of instructions
 
         bit_counter = 0
-        instruction = type_addressing.list(self.const['instr']['word']['type']['size']) + code_operation.list(self.const['instr']['word']['code']['size']) + address.list(self.const['instr']['address']['word']['size'])
+        instruction = type_addressing.list(self.const['instr']['word']['type']['size']) + code_operation.list(self.const['instr']['word']['code']['size']) + address.list(self.const['instr']['word']['address']['size'])
         for el in instruction:
-            unit = Unit(self.NS, unit_counter.val + bit_counter)
-            self.IB.update(unit, el)
+            unit = Unit(self.param, unit_counter.val + bit_counter)
+            self.IB.update(unit, Number(self.param, el))
             bit_counter += 1
-        self.AB.action(Number(self.NS, 0), self.const['alu']['incr'], self.const['mem']['instr'])
+        self.AB.action(Number(self.param, 0), self.const['alu']['incr'], self.const['mem']['instr'])
 
     def execute(self):
         self.__preparing()
         while self.read_word(self.const['mem']['instr_continue'], self.MB).val == 1:
             unit_counter = self.get_unit(self.read_word(self.const['mem']['counter'], self.MB), self.const['instr']['word']['size'])
-            type_addressing = self.read_units(Unit(self.NS, numb10=unit_counter.val + self.const['instr']['word']['type']['start']), self.IB, self.const['instr']['word']['type']['size'])
-            code_operation = self.read_units(Unit(self.NS, numb10=unit_counter.val + self.const['instr']['word']['code']['start']), self.IB, self.const['instr']['word']['code']['size'])
-            address = Word(self.NS, numb10=self.read_units(Unit(self.NS, numb10=unit_counter.val + self.const['instr']['word']['address']['start']), self.IB, self.const['instr']['word']['address']['size']).val)
-            self.AB.action(Number(self.NS, 0), self.const['alu']['incr'], self.const['mem']['counter'])
+            type_addressing = self.read_units(Unit(self.param, numb10=unit_counter.val + self.const['instr']['word']['type']['start']), self.IB, self.const['instr']['word']['type']['size'])
+            code_operation = self.read_units(Unit(self.param, numb10=unit_counter.val + self.const['instr']['word']['code']['start']), self.IB, self.const['instr']['word']['code']['size'])
+            address = Word(self.param, numb10=self.read_units(Unit(self.param, numb10=unit_counter.val + self.const['instr']['word']['address']['start']), self.IB, self.const['instr']['word']['address']['size']).val)
+            self.AB.action(Number(self.param, 0), self.const['alu']['incr'], self.const['mem']['counter'])
             self.AB.action(type_addressing, code_operation, address)
             self.AB.compare_smaller_sp(self.const['mem']['counter'], self.const['mem']['instr'], self.const['mem']['instr_continue'])
 
 
     def __preparing(self):
-        self.AB.action(Number(self.NS, 0), self.const['alu']['incr'], self.const['mem']['instr_continue'])
+        self.AB.action(Number(self.param, 0), self.const['alu']['incr'], self.const['mem']['instr_continue'])
        
 
 
@@ -280,11 +294,12 @@ class MemoryBlock(InformationBasis):
 
 
 class ALUBlock_2:
-    def __init__(self, NumberSystem, MB, mainConst):
-        self.NS = NumberSystem
+    def __init__(self, MB, mainConst):
+        self.NS = mainConst['NS']
         self.MB = MB
         self.mainConst = mainConst
         self.const = mainConst['alu']
+        self.param = [self.NS, self.mainConst['main']['word']['size']]
 
 
 
@@ -295,20 +310,20 @@ class ALUBlock_2:
         A - input value
         B - battery
         """
-        word_source = Word(self.NS)
+        word_source = Word(self.param)
         if type_addressing.val == 1 or type_addressing.val == 3:
-            source_A = InformationBasis(self.NS, self.mainConst, self.word_size, lst=address.list(self.word_size))
+            source_A = InformationBasis(self.mainConst, lst=address.list(self.word_size))
         elif type_addressing.val == 2:
-            unit_address = self.__read_unit(address)
+            unit_address = self.__get_unit(address)
             new_address = self.__read_value(unit_address, self.MB)
-            new_address = self.__read_word(new_address)
-            self.action(Number(self.NS), code_operation, new_address)
+            new_address = self.__get_word(new_address)
+            self.action(Number(self.param), code_operation, new_address)
             return
         else:
             word_source.keep_numb10_numb(address.val)
             source_A = self.MB
-        unit_A = self.__read_unit(word_source)
-        unit_B = self.__read_unit(self.mainConst['mem']['batt'])
+        unit_A = self.__get_unit(word_source)
+        unit_B = self.__get_unit(self.mainConst['mem']['batt'])
         if type_addressing.val == 3:
             match code_operation.val:
                 case _ as code if self.const['end'].val == code:  # end
@@ -317,12 +332,10 @@ class ALUBlock_2:
             match code_operation.val:
                 case _ as code if self.const['load'].val == code: #load
                     self.load_f(unit_A, unit_B, source_A)
-                case _ as code if self.const['and'].val == code: #and
-                    self.and_f(unit_A, unit_B, source_A)
-                case _ as code if self.const['or'].val == code:  # or
-                    self.or_f(unit_A, unit_B, source_A)
-                case _ as code if self.const['xor'].val == code:  # xor
-                    self.xor_f(unit_A, unit_B, source_A)
+                case _ as code if self.const['min'].val == code: #and
+                    self.min_f(unit_A, unit_B, source_A)
+                case _ as code if self.const['max'].val == code:  # or
+                    self.max_f(unit_A, unit_B, source_A)
                 case _ as code if self.const['add'].val == code:  # add
                     self.add_f(unit_A, unit_B, source_A)
                 case _ as code if self.const['subtr'].val == code:  # add
@@ -347,31 +360,29 @@ class ALUBlock_2:
 
     def load_f(self, unit_A: Unit, unit_B: Unit, source_A: InformationBasis):
         for it in range(self.word_size): #simple copying of byte
-            self.MB.update(unit_B + it, source_A.read(unit_A + it).val)
+            self.MB.update(unit_B + it, source_A.read(unit_A + it))
 
     def store_f(self, unit_A: Unit, unit_B: Unit, source_A: InformationBasis):
         for it in range(self.word_size):
-            self.MB.update(unit_A + it, source_A.read(unit_B + it).val)
+            self.MB.update(unit_A + it, source_A.read(unit_B + it))
 
-    def and_f(self, unit_A: Unit, unit_B: Unit, source_A: InformationBasis):
-        for it in range(self.word_size):
-            self.MB.update(unit_B + it, (source_A.read(unit_A + it) & source_A.read(unit_B + it)).val)
+    def min_f(self, unit_A: Unit, unit_B: Unit, source_A: InformationBasis):
+        A = self.__read_value(unit_A, source_A)
+        B = self.__read_value(unit_B, self.MB)
+        C = A & B
+        self.update_val(C, unit_B)
 
-    def or_f(self, unit_A: Unit, unit_B: Unit, source_A: InformationBasis):
-        for it in range(self.word_size):
-            self.MB.update(unit_B + it, (source_A.read(unit_A + it) | source_A.read(unit_B + it)).val)
-
-    def xor_f(self, unit_A: Unit, unit_B: Unit, source_A: InformationBasis):
-        for it in range(self.word_size):
-            self.MB.update(unit_B + it, (source_A.read(unit_A + it) ^ source_A.read(unit_B + it)).val)
+    def max_f(self, unit_A: Unit, unit_B: Unit, source_A: InformationBasis):
+        A = self.__read_value(unit_A, source_A)
+        B = self.__read_value(unit_B, self.MB)
+        C = A | B
+        self.update_val(C, unit_B)
 
     def add_f(self, unit_A: Unit, unit_B: Unit, source_A: InformationBasis):
-        pass
-        #self.action(Number(self.NS), self.const['store'], self.mainConst['mem']['cache'])
-        #unit_C = self.__get_bit(self.mainConst['mem']['cache'])
-        #self.mem[unit_B.val + self.word_size - 1] = source_A[unit_A.val + self.word_size - 1] ^ self.mem[unit_B.val + self.word_size - 1]
-        #for it in range(self.word_size -2, -1, -1):
-        #    self.mem[unit_B.val + it] = source_A[unit_A.val + it] ^ self.mem[bit_it_C.val + it] ^ (((self.mem[bit_it_C.val + it + 1] | source_A[unit_A.val + it + 1]) & (self.mem[unit_B.val + it + 1] == 0)) | (self.mem[bit_it_C.val + it + 1] & source_A[unit_A.val + it + 1]))
+        A = self.__read_value(unit_A, source_A)
+        B = self.__read_value(unit_B, self.MB)
+        C = A ^ B
+        self.update_val(C, unit_B)
 
     def subtraction_f(self, unit_A: Unit, unit_B: Unit, source_A):
         pass
@@ -380,53 +391,53 @@ class ALUBlock_2:
         for it in range(self.word_size -1, -1, -1):  # from byte back to front
             current_val = source_A.read(unit_A + it)
             if current_val.val == self.NS - 1:
-                source_A.update(unit_A + it, 0)
+                source_A.update(unit_A + it, Number(self.param))
             else:
-                source_A.update(unit_A + it, current_val.val + 1)
+                source_A.update(unit_A + it, Number(self.param, current_val.val + 1))
                 return
 
     def decrement_f(self, unit_A: Unit, source_A: InformationBasis):
         for it in range(self.word_size -1, -1, -1):  # from byte back to front
             current_val = source_A.read(unit_A + it)
             if current_val.val == 0:
-                source_A.update(unit_A + it,  self.NS - 1)
+                source_A.update(unit_A + it,  Number(self.param, self.NS - 1))
             else:
-                source_A.update(unit_A + it, current_val.val - 1)
+                source_A.update(unit_A + it, Number(self.param, current_val.val - 1))
                 return
 
     def compare_bigger_f(self, unit_A: Unit, unit_B: Unit, source_A: InformationBasis):
         last_it = self.word_size - 1
-        self.MB.update(unit_B.val + last_it, ((source_A.read(unit_A + last_it) == source_A.read(unit_A + last_it) | self.MB.read(unit_B + last_it)) and ((source_A.read(unit_A + last_it) == self.MB.read(unit_B + last_it)) == Unit(self.NS))).val)
+        self.MB.update(unit_B + last_it, ((source_A.read(unit_A + last_it) == source_A.read(unit_A + last_it) | self.MB.read(unit_B + last_it)) & ((source_A.read(unit_A + last_it) == self.MB.read(unit_B + last_it)) == Unit(self.param))))
         for it in range(self.word_size - 2, -1, -1):
             A = source_A.read(unit_A + it)
             B = self.MB.read(unit_B + it)
             if ((A == B).val == 0):
-                self.MB.update(unit_B + last_it, (A == (A | B)).val)
-            self.MB.update(unit_B + it, 0)
+                self.MB.update(unit_B + last_it, (A == (A | B)))
+            self.MB.update(unit_B + it, Number(self.param))
 
     def compare_smaller_f(self, unit_A: Unit, unit_B: Unit, source_A: InformationBasis):
         last_it = self.word_size - 1
-        self.MB.update(unit_B.val + last_it, ((self.MB.read(unit_B + last_it) == source_A.read(unit_A + last_it) | self.MB.read(unit_B + last_it)) and ((source_A.read(unit_A + last_it) == self.MB.read(unit_B + last_it)) == Unit(self.NS))).val)
+        self.MB.update(unit_B + last_it, ((self.MB.read(unit_B + last_it) == source_A.read(unit_A + last_it) | self.MB.read(unit_B + last_it)) & ((source_A.read(unit_A + last_it) == self.MB.read(unit_B + last_it)) == Unit(self.param))))
         for it in range(self.word_size - 2, -1, -1):
             A = source_A.read(unit_A + it)
             B = self.MB.read(unit_B + it)
             if ((A == B).val == 0):
-                self.MB.update(unit_B + last_it, (B == (A | B)).val)
-            self.MB.update(unit_B + it, 0)
+                self.MB.update(unit_B + last_it, (B == (A | B)))
+            self.MB.update(unit_B + it, Number(self.param))
 
     def compare_equal_f(self, unit_A: Unit, unit_B: Unit, source_A: InformationBasis):
         last_it = self.word_size - 1
-        self.MB.update(unit_B + last_it, (source_A.read(unit_A + last_it) == self.MB.read(unit_B + last_it)).val)
+        self.MB.update(unit_B + last_it, (source_A.read(unit_A + last_it) == self.MB.read(unit_B + last_it)))
         for it in range(self.word_size - 2, -1, -1):
             A = source_A.read(unit_A + it)
             B = self.MB.read(unit_B + it)
             if ((A == B).val == 0):
-                self.MB.update(unit_B + last_it, 0)
-            self.MB.update(unit_B + it, 0)
+                self.MB.update(unit_B + last_it, Number(self.param))
+            self.MB.update(unit_B + it, Number(self.param))
 
     def next_f(self, unit_A: Unit, unit_B: Unit, source_A: InformationBasis):
-        if source_A.read(unit_A + self.word_size - 1).val == 0:
-            self.action(Number(self.NS), self.const['incr'], self.mainConst['mem']['counter'])
+        if source_A.read(unit_A + (self.word_size - 1)).val == 0:
+            self.action(Number(self.param), self.const['incr'], self.mainConst['mem']['counter'])
 
     def goto_f(self, unit_A: Unit, unit_B: Unit, source_A: InformationBasis):
         self.update_val(unit_A, self.mainConst['mem']['counter'], source_A)
@@ -455,44 +466,46 @@ class ALUBlock_2:
 
     def compare_smaller_sp(self, word_A: Word, word_B: Word, storage: Word):
         # safe 1 if A < B, values in memory
-        unit_A = self.__read_unit(word_A)
-        unit_B = self.__read_unit(word_B)
-        unit_S = self.__read_unit(storage)
+        unit_A = self.__get_unit(word_A)
+        unit_B = self.__get_unit(word_B)
+        unit_S = self.__get_unit(storage)
         last_it = self.word_size - 1  ##>|< ?
-        self.MB.update(unit_S + last_it, ((self.MB.read(unit_B + last_it) == self.MB.read(unit_A + last_it) | self.MB.read(unit_B + last_it)) and ((self.MB.read(unit_A + last_it) == self.MB.read(unit_B + last_it)) == Unit(self.NS))).val)
+        self.MB.update(unit_S + last_it, ((self.MB.read(unit_B + last_it) == self.MB.read(unit_A + last_it) | self.MB.read(unit_B + last_it)) & (self.MB.read(unit_A + last_it) == self.MB.read(unit_B + last_it)) == Unit(self.param)))
         for it in range(self.word_size - 2, -1, -1):
-            A = self.MB.read(unit_A + it)
-            B = self.MB.read(unit_B + it)
+            A:Number = self.MB.read(unit_A + it)
+            B:Number = self.MB.read(unit_B + it)
             if ((A == B).val == 0):
-                self.MB.update(unit_S + last_it, 0)
-            self.MB.update(unit_S + it, 0)
+                self.MB.update(unit_S + last_it, (B == (A | B)))
+            self.MB.update(unit_S + it, Number(self.param))
 
 
     def __read_value(self, unit_A: Unit, source_A: InformationBasis):
-        value = Number(self.NS)
+        value = Number(self.param)
         for it in range(self.word_size):
-            unit = Unit(self.NS, unit_A.val + it)
-            value.append(source_A.read(unit))
+            value.append(source_A.read(unit_A + it).val)
         return value
 
-    def __read_word(self, numb_A: Number, public=True):
+    def __get_word(self, numb_A: Number, public=True):
         if public:
-            return Word(self.NS, numb10=numb_A.val + self.mainConst['mem']['reserved'])
+            return Word(self.param, numb10=numb_A.val + self.mainConst['mem']['reserved'])
         else:
-            return Word(self.NS, numb10=numb_A.val)
+            return Word(self.param, numb10=numb_A.val)
 
-    def __read_unit(self, word_A: Word) -> Unit:
-        return Unit(self.NS, numb10=word_A.val * self.word_size)
+    def __get_unit(self, word_A: Word) -> Unit:
+        return Unit(self.param, numb10=word_A.val * self.word_size)
 
-    def update_val(self, unit_A, unit_B, source_A: InformationBasis):
+    def update_val(self, unit_A, unit_B, source_A: InformationBasis=None):
         """
         :param unit_A: new_value
         :param unit_B: updated_value in memory
         :param source_A: source of new_value
         :return:
         """
-        if type(unit_A) != Unit: unit_A = self.__read_unit(unit_A)
-        if type(unit_B) != Unit: unit_B = self.__read_unit(unit_B)
+        if type(unit_A) == Number:
+            source_A = InformationBasis(self.mainConst, lst=unit_A.list(self.word_size))
+            unit_A = Unit(self.param)
+        if type(unit_A) != Unit: unit_A = self.__get_unit(unit_A)
+        if type(unit_B) != Unit: unit_B = self.__get_unit(unit_B)
         for it in range(self.word_size):
             self.MB.update(unit_B + it, source_A.read(unit_A + it))
 
@@ -506,7 +519,7 @@ class InstructionRegisterBlock_2(InformationBasis):
 class UI:
     machine: MainMachine
     def __init__(self, NS:int=2, word:int=8, memory_size:int=1024, instruction_stack_size:int=256):
-        self.NS = NS
+        self.param = NS
         self.machine = MainMachine(NS, word, memory_size, instruction_stack_size)
 
     def execute(self):
@@ -514,6 +527,6 @@ class UI:
 
 
     def add_instruction(self, type_addressing: int, code_operation, address: int):
-        if type_addressing != 1: address += self.machine.const['mem']['reserved']
+        if type_addressing == 0 or type_addressing == 2: address += self.machine.const['mem']['reserved']
         if type(code_operation) == Number: code_operation = code_operation.val
         self.machine.add_instruction(type_addressing, code_operation, address)

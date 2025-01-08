@@ -43,12 +43,12 @@ class Test(unittest.TestCase):
     def test_load_n_storage_n_logic_n_incr(self):
         self.clear_machine()
         print('test_load_n_storage_n_logic_n_incr')
-        n1, n2, n3, n4 = 156, 27 + 1, 89, 203
+        n1, n2, n3, n4 = 156, 27, 89, 203
         res1 = (((n1 & n2) | n3) ^ n4)
         print(res1)
         self.UI.add_instruction(1, self.comm['load'], n1)
         self.UI.add_instruction(0, self.comm['store'], 0)
-        self.UI.add_instruction(1, self.comm['load'], n2)
+        self.UI.add_instruction(1, self.comm['load'], n2 - 1)
         self.UI.add_instruction(0, self.comm['store'], 1)
         self.UI.add_instruction(0, self.comm['incr'], 1)
         self.UI.add_instruction(1, self.comm['load'], n3)
