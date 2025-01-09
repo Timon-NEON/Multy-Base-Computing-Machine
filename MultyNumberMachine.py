@@ -1,4 +1,4 @@
-from math import ceil, log, floor
+from math import ceil, log
 
 class NumberProcessing:
     def __init__(self, param:list, numb10=-1, numb=None):
@@ -207,7 +207,6 @@ class MainMachine:
                 'min': Number(self.param, numb10=1),
                 'max': Number(self.param, numb10=2),
                 'add': Number(self.param, numb10=4),
-                'subtr': Number(self.param, numb10=5),
                 'store': Number(self.param, numb10=7),
                 'incr': Number(self.param, numb10=8),
                 'decr': Number(self.param, numb10=9),
@@ -338,8 +337,6 @@ class ALUBlock_2:
                     self.max_f(unit_A, unit_B, source_A)
                 case _ as code if self.const['add'].val == code:  # add
                     self.add_f(unit_A, unit_B, source_A)
-                case _ as code if self.const['subtr'].val == code:  # add
-                    self.subtraction_f(unit_A, unit_B, source_A)
                 case _ as code if self.const['incr'].val == code: #increment
                     self.increment_f(unit_A, source_A)
                 case _ as code if self.const['decr'].val == code: #decrement
@@ -383,9 +380,6 @@ class ALUBlock_2:
         B = self.__read_value(unit_B, self.MB)
         C = A ^ B
         self.update_val(C, unit_B)
-
-    def subtraction_f(self, unit_A: Unit, unit_B: Unit, source_A):
-        pass
 
     def increment_f(self, unit_A: Unit, source_A: InformationBasis):
         for it in range(self.word_size -1, -1, -1):  # from byte back to front
@@ -526,7 +520,38 @@ class UI:
         self.machine.execute()
 
 
-    def add_instruction(self, type_addressing: int, code_operation, address: int):
+    def add_instruction(self, type_addressing, code_operation, address):
+        type_addressing = int(type_addressing)
+        address = int(address)
         if type_addressing == 0 or type_addressing == 2: address += self.machine.const['mem']['reserved']
         if type(code_operation) == Number: code_operation = code_operation.val
+        elif type(code_operation) == str: code_operation = self.machine.const['alu'][code_operation].val
         self.machine.add_instruction(type_addressing, code_operation, address)
+
+
+class new_UI:
+    machine: MainMachine
+    def __init__(self, machine_parameters: list):
+        NS: int = int(machine_parameters[0])
+        word: int = int(machine_parameters[1])
+        memory_size: int = int(machine_parameters[2])
+        instruction_stack_size: int = int(machine_parameters[3])
+
+        self.param = NS
+        self.machine = MainMachine(NS, word, memory_size, instruction_stack_size)
+
+    def execute(self):
+        self.machine.execute()
+
+    def add_instruction(self, command_parameters):
+        type_addressing = int(command_parameters[0])
+        code_operation = command_parameters[1]
+        address = int(command_parameters[2])
+
+        if type_addressing == 0 or type_addressing == 2: address += self.machine.const['mem']['reserved']
+        if type(code_operation) == Number:
+            code_operation = code_operation.val
+        elif type(code_operation) == str:
+            code_operation = self.machine.const['alu'][code_operation].val
+        self.machine.add_instruction(type_addressing, code_operation, address)
+
