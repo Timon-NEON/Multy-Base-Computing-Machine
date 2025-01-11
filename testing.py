@@ -2,10 +2,10 @@ import unittest
 
 from MultyNumberMachine import *
 
-NS = 25
-word = 65
-memory_size= 200
-instruction_stack_size= 300
+NS = 3
+word = 12
+memory_size = 250
+instruction_stack_size = 400
 
 class Test(unittest.TestCase):
     NS = NS
@@ -183,8 +183,8 @@ class Test(unittest.TestCase):
         self.UI.execute()
         self.show_memory()
         res1 = [
-            (n1 // 2) * 2,
-            (n2 // 2) * 2,
+            (n1 // 2) * 2 if n1 % self.NS != 0 else n1,
+            (n2 // 2) * 2 if n2 % self.NS != 0 else n2
         ]
         print(res1)
         for i in range(len(res1)):
@@ -287,6 +287,50 @@ class Test(unittest.TestCase):
         res2 = self.get_word(0, True)
         print(res2)
         self.assertEqual(n1, res2)
+
+    def test_print(self):
+        self.clear_machine()
+        print('test_print')
+        n1 = 1
+        self.UI.add_instruction(0, self.comm['load'], 0)
+        self.UI.add_instruction(1, self.comm['out'], 0)
+        self.UI.add_instruction(0, self.comm['incr'], 0)
+        self.UI.add_instruction(0, self.comm['load'], 0)
+        self.UI.add_instruction(1, self.comm['out'], 0)
+        self.UI.add_instruction(1, self.comm['load'], 35)
+        self.UI.add_instruction(1, self.comm['out'], 0)
+        self.UI.add_instruction(1, self.comm['out'], 1)
+
+        self.UI.execute()
+        self.show_memory()
+        res2 = self.get_word(0, True)
+        print(res2)
+        self.assertEqual(n1, res2)
+
+    def test_input(self):
+        self.clear_machine()
+        print('test_print')
+        print('input:')
+        print(1, 1, 1)
+        print(111)
+        print()
+        n1 = self.NS ** 2 + self.NS + 1
+        n2 = 111
+        self.UI.add_instruction(1, self.comm['in'], 0)
+        self.UI.add_instruction(1, self.comm['out'], 0)
+        self.UI.add_instruction(0, self.comm['store'], 0)
+        self.UI.add_instruction(1, self.comm['in'], 1)
+        self.UI.add_instruction(1, self.comm['out'], 0)
+        self.UI.add_instruction(0, self.comm['store'], 1)
+
+        self.UI.execute()
+        self.show_memory()
+        res1 = [n1, n2]
+        for i in range(2):
+            res2 = self.get_word(i, True)
+            print(res2)
+            self.assertEqual(res1[i], res2)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -13,14 +13,15 @@ class NumberProcessing:
             self.val = 0
 
     def __str__(self):
-        return str(type(self)) + '  ' + str(self.val) + '  ' + str(self.list())
+        s = ''
+        for el in self.list():
+            s += str(el) + ' '
+        if s == '':
+            s = '0 '
+        return s[:-1]
 
     def __add__(self, other):
-        if isinstance(other, NumberProcessing):
-            return type(self)(self.param, numb10=self.val + other.val)
-        elif isinstance(other, int):
-            return type(self)(self.param, numb10=self.val + other)
-        return self
+        return self ^ other
 
     def __and__(self, other):
         if isinstance(other, NumberProcessing):
@@ -153,11 +154,13 @@ class InformationBasis:
 
 
 class MainMachine:
-    def __init__(self, NS:int, word:int, memory_size:int, instruction_stack_size:int):
+    def __init__(self, NS:int, word:int, memory_size:int, instruction_stack_size:int, input_f, print_f):
         self.NS = NS
         self.word = word
         self.memory_size = memory_size
         self.instr_stack_size = instruction_stack_size
+        self.input_f = input_f
+        self.print_f = print_f
 
         self.type_addressing_quantity = 4
         self.commands_quantity = 16
@@ -171,7 +174,7 @@ class MainMachine:
         self.instr_capacity = min(self.word_capacity, self.instr_stack_size)
         self.instr_units_quantity = self.instr_capacity * self.instr_word
 
-        self.first_block_reservation = 5
+        self.first_block_reservation = 4
 
         self.param = [self.NS, self.word]
 
@@ -183,6 +186,12 @@ class MainMachine:
                     'amount': self.memory_size,
                     'capacity': self.word_capacity,
                 },
+            },
+            'console': {
+                'char': chr,
+                'print': self.print_f,
+                'input': self.input_f,
+                'stream': [],
             },
             'instr' : {
                 'word': {
@@ -206,7 +215,9 @@ class MainMachine:
                 'load': Number(self.param, numb10=0),
                 'min': Number(self.param, numb10=1),
                 'max': Number(self.param, numb10=2),
-                'add': Number(self.param, numb10=4),
+                'add': Number(self.param, numb10=3),
+                'in': Number(self.param, numb10=4),
+                'out': Number(self.param, numb10=5),
                 'store': Number(self.param, numb10=7),
                 'incr': Number(self.param, numb10=8),
                 'decr': Number(self.param, numb10=9),
@@ -226,7 +237,6 @@ class MainMachine:
                 'counter': Word(self.param, numb10=1),
                 'instr': Word(self.param, numb10=2),
                 'instr_continue': Word(self.param, numb10=3),
-                'cache': Word(self.param, numb10=4),
             },
         }
 
@@ -284,7 +294,7 @@ class MainMachine:
 
     def __preparing(self):
         self.AB.action(Number(self.param, 0), self.const['alu']['incr'], self.const['mem']['instr_continue'])
-       
+
 
 
 class MemoryBlock(InformationBasis):
@@ -337,6 +347,10 @@ class ALUBlock_2:
                     self.max_f(unit_A, unit_B, source_A)
                 case _ as code if self.const['add'].val == code:  # add
                     self.add_f(unit_A, unit_B, source_A)
+                case _ as code if self.const['in'].val == code:  # input
+                    self.in_f(unit_A, unit_B, source_A)
+                case _ as code if self.const['out'].val == code:  # print
+                    self.out_f(unit_A, unit_B, source_A)
                 case _ as code if self.const['incr'].val == code: #increment
                     self.increment_f(unit_A, source_A)
                 case _ as code if self.const['decr'].val == code: #decrement
@@ -380,6 +394,24 @@ class ALUBlock_2:
         B = self.__read_value(unit_B, self.MB)
         C = A ^ B
         self.update_val(C, unit_B)
+
+    def in_f(self, unit_A: Unit, unit_B: Unit, source_A: InformationBasis):
+        self.mainConst['console']['stream'] = self.mainConst['console']['input']()
+        A = self.__read_value(unit_A, source_A)
+        if A.val == 0:
+            input_value = Number(self.param, numb=list(map(int, self.mainConst['console']['stream'])))
+            self.update_val(input_value, unit_B)
+        else:
+            new_val = Number(self.param, int(self.mainConst['console']['stream'][0]))
+            self.update_val(new_val, unit_B)
+
+    def out_f(self, unit_A: Unit, unit_B: Unit, source_A: InformationBasis):
+        way = self.__read_value(unit_A, source_A)
+        value = self.__read_value(unit_B, self.MB)
+        if way.val == 0:
+            self.mainConst['console']['print'](value)
+        else:
+            self.mainConst['console']['print'](self.mainConst['console']['char'](value.val))
 
     def increment_f(self, unit_A: Unit, source_A: InformationBasis):
         for it in range(self.word_size -1, -1, -1):  # from byte back to front
@@ -514,7 +546,9 @@ class UI:
     machine: MainMachine
     def __init__(self, NS:int=2, word:int=8, memory_size:int=1024, instruction_stack_size:int=256):
         self.param = NS
-        self.machine = MainMachine(NS, word, memory_size, instruction_stack_size)
+        self.machine = MainMachine(NS, word, memory_size, instruction_stack_size, self.__input, self.__print)
+        self.input_f = None
+        self.print_f = None
 
     def execute(self):
         self.machine.execute()
@@ -528,6 +562,22 @@ class UI:
         elif type(code_operation) == str: code_operation = self.machine.const['alu'][code_operation].val
         self.machine.add_instruction(type_addressing, code_operation, address)
 
+    def update_console(self, input_f=None, print_f=None):
+        self.input_f = input_f
+        self.print_f = print_f
+
+    def __input(self):
+        if self.input_f == None:
+            return input().split()
+        else:
+            return self.input_f()
+
+    def __print(self, value):
+        if self.print_f == None:
+            print(value)
+        else:
+            self.input_f(value)
+
 
 class new_UI:
     machine: MainMachine
@@ -536,9 +586,11 @@ class new_UI:
         word: int = int(machine_parameters[1])
         memory_size: int = int(machine_parameters[2])
         instruction_stack_size: int = int(machine_parameters[3])
+        self.input_f = None
+        self.print_f = None
 
         self.param = NS
-        self.machine = MainMachine(NS, word, memory_size, instruction_stack_size)
+        self.machine = MainMachine(NS, word, memory_size, instruction_stack_size, self.__input, self.__print)
 
     def execute(self):
         self.machine.execute()
@@ -546,12 +598,36 @@ class new_UI:
     def add_instruction(self, command_parameters):
         type_addressing = int(command_parameters[0])
         code_operation = command_parameters[1]
-        address = int(command_parameters[2])
+        address = command_parameters[2]
 
-        if type_addressing == 0 or type_addressing == 2: address += self.machine.const['mem']['reserved']
+        spec_name = False
+
         if type(code_operation) == Number:
             code_operation = code_operation.val
         elif type(code_operation) == str:
             code_operation = self.machine.const['alu'][code_operation].val
+        if address == 'batt':
+            address = self.machine.const['mem']['batt'].val
+            spec_name = True
+        else:
+            address = int(command_parameters[2])
+
+        if (type_addressing == 0 or type_addressing == 2) and (not spec_name): address += self.machine.const['mem']['reserved']
         self.machine.add_instruction(type_addressing, code_operation, address)
+
+    def update_console(self, input_f=None, print_f=None):
+        self.input_f = input_f
+        self.print_f = print_f
+
+    def __input(self):
+        if self.input_f == None:
+            return input().split()
+        else:
+            return self.input_f()
+
+    def __print(self, value):
+        if self.print_f == None:
+            print(value)
+        else:
+            self.input_f(value)
 
