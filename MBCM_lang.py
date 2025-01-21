@@ -1,13 +1,12 @@
 import argparse
 
-from PolyBaseMachine import *
+from MultyBaseComputingMachine import *
 
 class Environment:
 
     def __init__(self, program_name=None, program=''):
         self.machine = None
         self.program_name = program_name
-
         self.read()
 
     def read(self):
@@ -18,7 +17,7 @@ class Environment:
                 self.add_command(line)
             program.close()
         self.UI.execute()
-        self.show_memory()
+        #self.show_memory()
 
     def create_machine(self, setup):
         setup_lst = list(map(int, setup.split()))
