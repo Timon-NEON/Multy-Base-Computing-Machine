@@ -1,6 +1,5 @@
 import unittest
-
-from MultyNumberMachine import *
+from MultyBaseComputingMachine import *
 
 NS = 3
 word = 12
@@ -12,7 +11,7 @@ class Test(unittest.TestCase):
     word = word
     memory_size = memory_size
     instruction_stack_size = instruction_stack_size
-    UI = UI(NS=NS, word=word, memory_size=memory_size, instruction_stack_size=instruction_stack_size)
+    UI = UI([NS, word, memory_size, instruction_stack_size])
     machine = UI.machine
     comm = machine.const['alu']
     reserved = machine.const['mem']['reserved']
@@ -48,7 +47,6 @@ class Test(unittest.TestCase):
         for i in range(self.machine.MB.memory_size):
             self.machine.MB.update(Unit(self.param, i), Number(self.param))
 
-
     def execute(self):
         self.UI.execute()
 
@@ -77,8 +75,6 @@ class Test(unittest.TestCase):
         self.show_memory(True)
         res2 = self.get_word(0)
         self.assertEqual(res1, res2)
-
-
 
     def test_addition(self):
         self.clear_machine()
@@ -254,25 +250,6 @@ class Test(unittest.TestCase):
         print(self.get_word(0))
         self.assertEqual(n1, res2)
 
-    #def test_svrt(self):
-    #    self.clear_machine()
-    #    print('test_svrt')
-    #    n1, n2, n3 = 12, 8, 7
-    #    self.UI.add_instruction(1, self.comm['load'], n1)
-    #    self.UI.add_instruction(0, self.comm['store'], 0)
-    #    self.UI.add_instruction(0, self.comm['svrt'], 0)
-    #    self.UI.add_instruction(1, self.comm['load'], n2)
-    #    self.UI.add_instruction(0, self.comm['store'], 0)
-    #    self.UI.add_instruction(0, self.comm['svrt'], 0)
-    #    self.UI.add_instruction(1, self.comm['svrt'], n3)
-#
-#
-    #    self.UI.execute()
-    #    self.show_memory()
-    #    res2 = self.get_word(10)
-    #    print(res2)
-    #    self.assertEqual(n3, res2)
-
     def test_end(self):
         self.clear_machine()
         print('test_end')
@@ -280,7 +257,6 @@ class Test(unittest.TestCase):
         self.UI.add_instruction(0, self.comm['incr'], 0)
         self.UI.add_instruction(3, self.comm['end'], 0)
         self.UI.add_instruction(0, self.comm['incr'], 0)
-
 
         self.UI.execute()
         self.show_memory()
@@ -310,7 +286,7 @@ class Test(unittest.TestCase):
     def test_input(self):
         self.clear_machine()
         print('test_print')
-        print('input:')
+        print('For correct work, just print:')
         print(1, 1, 1)
         print(111)
         print()
