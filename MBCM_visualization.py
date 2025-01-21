@@ -1,7 +1,7 @@
 import tkinter as tk
 from time import time
 from webbrowser import open as web_open
-from MultyBaseComputingMachine import *
+from MultiBaseComputingMachine import *
 
 class PNM_visualisation:
 

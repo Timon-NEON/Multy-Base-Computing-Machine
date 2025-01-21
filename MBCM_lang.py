@@ -1,6 +1,6 @@
 import argparse
 
-from MultyBaseComputingMachine import *
+from MultiBaseComputingMachine import *
 
 class Environment:
 

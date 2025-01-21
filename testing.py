@@ -1,5 +1,5 @@
 import unittest
-from MultyBaseComputingMachine import *
+from MultiBaseComputingMachine import *
 
 NS = 3
 word = 12
