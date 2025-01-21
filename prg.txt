@@ -1,5 +1,0 @@
-2 8 1024 256
-load 13 1
-store
-store 1
-incr 1
